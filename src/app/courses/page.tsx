@@ -1,8 +1,12 @@
 import type { Metadata } from "next";
 import { CourseCatalog } from "@/components/course-catalog";
 import { getCourses } from "@/lib/catalog";
+import { getLiveContent } from "@/lib/site-content";
 import type { CourseLevel } from "@/lib/types";
-import { AsciiDivider } from "@/components/ascii/ascii-block";
+import { CoursesHeader } from "@/components/views/courses-header";
+
+// Editable header content must reflect a Publish without a redeploy.
+export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
   title: "All courses",
@@ -23,28 +27,22 @@ export default async function CoursesPage({
       ? (level as CourseLevel)
       : "All";
 
-  const courses = await getCourses();
+  const [courses, content] = await Promise.all([getCourses(), getLiveContent()]);
+
+  const header = initialLevel === "All" ? content.courses : content.coursesByLevel[initialLevel];
+  const basePath = initialLevel === "All" ? "courses" : `coursesByLevel.${initialLevel}`;
 
   return (
     <>
-      <section className="border-b border-line bg-surface/70">
-        <div className="container-page py-12">
-          <AsciiDivider index="ls" label="catalog" />
-          <p className="mt-5 font-mono text-xs text-muted">
-            <span className="term-prompt text-accent" />tc ls --tracks all
-          </p>
-          <h1 className="mt-3 text-3xl font-bold tracking-tight text-ink md:text-4xl">
-            Explore courses
-          </h1>
-          <p className="mt-3 max-w-2xl text-ink-soft">
-            Every NISM certification and coding course from the Tech Courses channel. Filter by
-            track, search by topic, and start watching free.
-          </p>
-        </div>
-      </section>
+      <CoursesHeader header={header} basePath={basePath} />
 
       <section className="container-page py-10">
-        <CourseCatalog initialLevel={initialLevel} courses={courses} />
+        <CourseCatalog
+          initialLevel={initialLevel}
+          courses={courses}
+          catalog={content.catalog}
+          microcopy={content.courseCard}
+        />
       </section>
     </>
   );

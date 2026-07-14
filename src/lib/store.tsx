@@ -39,6 +39,7 @@ interface StoreValue extends StoreState {
   signUp: (name: string, email: string, password: string) => Promise<AuthOutcome>;
   logout: () => void;
   enroll: (courseId: string) => void;
+  confirmEnrollment: (courseId: string) => void;
   isEnrolled: (courseId: string) => boolean;
   toggleLesson: (courseId: string, lessonId: string) => void;
   isLessonComplete: (courseId: string, lessonId: string) => boolean;
@@ -108,6 +109,21 @@ export function StoreProvider({
     void enrollAction(courseId);
   }, []);
 
+  // Paid courses: enrollment is already persisted server-side by
+  // /api/payments/verify. This only syncs local UI state, no server call.
+  const confirmEnrollment = useCallback((courseId: string) => {
+    setState((s) => {
+      if (s.enrollments.some((e) => e.courseId === courseId)) return s;
+      return {
+        ...s,
+        enrollments: [
+          ...s.enrollments,
+          { courseId, enrolledAt: new Date().toISOString(), completedLessonIds: [] },
+        ],
+      };
+    });
+  }, []);
+
   const toggleLesson = useCallback((courseId: string, lessonId: string) => {
     setState((s) => ({
       ...s,
@@ -133,6 +149,7 @@ export function StoreProvider({
     signUp,
     logout,
     enroll,
+    confirmEnrollment,
     isEnrolled: (courseId) => state.enrollments.some((e) => e.courseId === courseId),
     toggleLesson,
     isLessonComplete: (courseId, lessonId) =>

@@ -46,7 +46,7 @@ export interface Course {
   code?: string;
   description: string;
   instructorId: string;
-  /** Free-now, paid-ready: 0 means free. mrpInr kept for future paid mode. */
+  /** Owner-set in Course Studio. 0 means free. */
   priceInr: number;
   mrpInr: number;
   /** Total real view count across the course's lessons. */

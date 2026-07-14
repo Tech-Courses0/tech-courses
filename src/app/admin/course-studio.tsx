@@ -279,6 +279,8 @@ function CourseRow({ course }: { course: AdminCourseRow }) {
   const [showVideos, setShowVideos] = useState(false);
   const [titleOverride, setTitleOverride] = useState(course.titleOverride ?? "");
   const [descOverride, setDescOverride] = useState(course.descOverride ?? "");
+  const [priceInr, setPriceInr] = useState(String(course.priceInr));
+  const [mrpInr, setMrpInr] = useState(String(course.mrpInr));
   const [examInfo, setExamInfo] = useState(course.examInfo ?? "");
   const [mockTestUrl, setMockTestUrl] = useState(course.mockTestUrl ?? "");
   const [saved, setSaved] = useState(false);
@@ -384,6 +386,34 @@ function CourseRow({ course }: { course: AdminCourseRow }) {
               onBlur={() => save({ titleOverride: titleOverride.trim() || null })}
               placeholder={course.ytTitle}
             />
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="mb-1 block text-xs font-medium text-ink-soft">
+                Price (₹, 0 = free)
+              </label>
+              <input
+                type="number"
+                min={0}
+                className="field tnum"
+                value={priceInr}
+                onChange={(e) => setPriceInr(e.target.value)}
+                onBlur={() => save({ priceInr: Number(priceInr) || 0 })}
+              />
+            </div>
+            <div>
+              <label className="mb-1 block text-xs font-medium text-ink-soft">
+                MRP (₹, shown struck-through)
+              </label>
+              <input
+                type="number"
+                min={0}
+                className="field tnum"
+                value={mrpInr}
+                onChange={(e) => setMrpInr(e.target.value)}
+                onBlur={() => save({ mrpInr: Number(mrpInr) || 0 })}
+              />
+            </div>
           </div>
           <div>
             <label className="mb-1 block text-xs font-medium text-ink-soft">Description override</label>

@@ -8,10 +8,12 @@ import {
   destroySession,
   getCurrentUser,
   getUserEnrollments,
+  grantEnrollment,
   type SessionUser,
   type ClientEnrollment,
 } from "./auth";
 import { isAdmin } from "./admin";
+import { getCourseById } from "./catalog";
 
 export interface AuthResult {
   ok: boolean;
@@ -69,15 +71,17 @@ export async function signOutAction(): Promise<void> {
   await destroySession();
 }
 
+// Free-course enrollment only. Paid courses are enrolled by
+// /api/payments/verify after the Razorpay signature checks out — this action
+// must never grant access to a course with a price, or checkout is skippable.
 export async function enrollAction(courseId: string): Promise<ClientEnrollment | null> {
   const user = await getCurrentUser();
   if (!user) return null;
-  const enrollment = await prisma.enrollment.upsert({
-    where: { userId_courseId: { userId: user.id, courseId } },
-    create: { userId: user.id, courseId },
-    update: {},
-  });
-  return { courseId, enrolledAt: enrollment.enrolledAt.toISOString(), completedLessonIds: [] };
+  const course = await getCourseById(courseId);
+  if (!course || course.priceInr > 0) return null;
+
+  await grantEnrollment(user.id, courseId);
+  return { courseId, enrolledAt: new Date().toISOString(), completedLessonIds: [] };
 }
 
 export async function toggleLessonAction(

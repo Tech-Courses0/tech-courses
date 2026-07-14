@@ -75,8 +75,8 @@ function buildCourse(c: NonNullable<DbCourse>): Course {
     code: c.code ?? undefined,
     description,
     instructorId: INSTRUCTOR_ID,
-    priceInr: 0,
-    mrpInr: 0,
+    priceInr: c.priceInr,
+    mrpInr: c.mrpInr,
     views: c.views,
     lastUpdated: fmtDate(c.syncedAt),
     language: "English",
@@ -174,6 +174,8 @@ export interface AdminCourseRow {
   level: string;
   code: string | null;
   order: number;
+  priceInr: number;
+  mrpInr: number;
   views: number;
   lessonCount: number;
   titleOverride: string | null;
@@ -199,6 +201,8 @@ export async function getAdminCourses(): Promise<AdminCourseRow[]> {
     level: r.level,
     code: r.code,
     order: r.order,
+    priceInr: r.priceInr,
+    mrpInr: r.mrpInr,
     views: r.views,
     lessonCount: r.lessons.length,
     titleOverride: r.titleOverride,

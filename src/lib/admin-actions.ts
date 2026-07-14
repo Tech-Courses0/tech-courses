@@ -11,6 +11,8 @@ export interface CoursePatch {
   track?: string;
   order?: number;
   code?: string | null;
+  priceInr?: number;
+  mrpInr?: number;
   titleOverride?: string | null;
   descOverride?: string | null;
   examInfo?: string | null;
@@ -20,6 +22,12 @@ export interface CoursePatch {
 export async function updateCourseAction(id: string, patch: CoursePatch) {
   const admin = await getAdminUser();
   if (!admin) return { ok: false, error: "Not authorized" };
+  if (patch.priceInr !== undefined && (patch.priceInr < 0 || !Number.isFinite(patch.priceInr))) {
+    return { ok: false, error: "Price must be a positive number." };
+  }
+  if (patch.mrpInr !== undefined && (patch.mrpInr < 0 || !Number.isFinite(patch.mrpInr))) {
+    return { ok: false, error: "MRP must be a positive number." };
+  }
   await prisma.course.update({ where: { id }, data: patch });
   revalidatePath("/", "layout");
   return { ok: true };

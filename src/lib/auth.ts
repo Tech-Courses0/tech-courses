@@ -86,6 +86,14 @@ export async function getCurrentUser(): Promise<SessionUser | null> {
   return { id: session.user.id, name: session.user.name, email: session.user.email };
 }
 
+export async function grantEnrollment(userId: string, courseId: string): Promise<void> {
+  await prisma.enrollment.upsert({
+    where: { userId_courseId: { userId, courseId } },
+    create: { userId, courseId },
+    update: {},
+  });
+}
+
 // ---- Enrollment + progress, shaped for the client store ----
 
 export interface ClientEnrollment {

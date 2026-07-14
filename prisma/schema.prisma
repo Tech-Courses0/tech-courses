@@ -21,6 +21,7 @@ model User {
   sessions     Session[]
   enrollments  Enrollment[]
   progress     Progress[]
+  payments     Payment[]
 }
 
 model Session {
@@ -79,6 +80,8 @@ model Course {
   level         String   @default("")
   code          String?
   order         Int      @default(0)
+  priceInr      Int      @default(0) // 0 = free
+  mrpInr        Int      @default(0)
   titleOverride String?
   descOverride  String?
   examInfo      String?  // certification exam details (passing %, fees, format)
@@ -106,6 +109,23 @@ model Lesson {
   @@index([courseId])
 }
 
+// Razorpay order lifecycle, one row per checkout attempt. Enrollment is only
+// granted once the signature on the paid row is verified (see api/payments/verify).
+model Payment {
+  id          String   @id @default(cuid())
+  userId      String
+  courseId    String
+  orderId     String   @unique
+  paymentId   String?
+  amountPaise Int
+  status      String   @default("created") // created | paid | failed
+  createdAt   DateTime @default(now())
+
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
 // Admin allowlist (by email, so they can be granted access before signing up).
 // The ADMIN_EMAILS env list is the always-on "owner" bootstrap on top of this.
 model Admin {
@@ -122,4 +142,23 @@ model Channel {
   totalViews  Int      @default(0)
   videoCount  Int      @default(0)
   syncedAt    DateTime @default(now())
+}
+
+// ─── Visual CMS editor: owner-editable marketing content ───
+// Two rows only: id = 'draft' (autosave target) and 'live' (public site reads
+// this). `data` is the full SiteContent tree (see src/types/content.ts).
+model SiteContent {
+  id        String   @id // 'draft' | 'live'
+  data      Json
+  updatedAt DateTime @updatedAt
+}
+
+// Append-only log of published versions — powers the editor's History panel.
+model SiteContentHistory {
+  id        Int      @id @default(autoincrement())
+  message   String
+  data      Json
+  createdAt DateTime @default(now())
+
+  @@index([createdAt])
 }

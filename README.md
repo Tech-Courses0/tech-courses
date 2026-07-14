@@ -109,6 +109,7 @@ Then sign in with an `ADMIN_EMAILS` address and open **`/admin`** to publish cou
 | `/learn/[slug]` | Lesson player (login required) |
 | `/dashboard` | Continue learning + progress (login required) |
 | `/login`, `/signup` | Auth (email/password + Google) |
+| `/contact` | Contact form and support links |
 | `/admin` | **Course Studio** (admin only) |
 | `GET/POST /api/admin/sync` | Sync endpoint (cron `Bearer CRON_SECRET` or admin session) |
 | `GET /api/auth/google[/callback]` | Google OAuth flow |

@@ -10,11 +10,52 @@ import { formatInr } from "@/lib/format";
 import { Thumbnail } from "./ui";
 import { CheckIcon, LockIcon, ShieldIcon } from "./icons";
 
-type Method = "card" | "upi" | "netbanking";
 type Phase = "form" | "processing" | "done";
 
+interface RazorpayResponse {
+  razorpay_order_id: string;
+  razorpay_payment_id: string;
+  razorpay_signature: string;
+}
+
+interface RazorpayOptions {
+  key: string;
+  amount: number;
+  currency: string;
+  name: string;
+  description: string;
+  order_id: string;
+  prefill: { name: string; email: string };
+  theme: { color: string };
+  handler: (response: RazorpayResponse) => void;
+  modal: { ondismiss: () => void };
+}
+
+declare global {
+  interface Window {
+    Razorpay: new (options: RazorpayOptions) => { open: () => void };
+  }
+}
+
+const CHECKOUT_SRC = "https://checkout.razorpay.com/v1/checkout.js";
+
+function loadRazorpayScript(): Promise<void> {
+  if (window.Razorpay) return Promise.resolve();
+  const existing = document.querySelector(`script[src="${CHECKOUT_SRC}"]`);
+  if (existing) {
+    return new Promise((resolve) => existing.addEventListener("load", () => resolve()));
+  }
+  return new Promise((resolve, reject) => {
+    const script = document.createElement("script");
+    script.src = CHECKOUT_SRC;
+    script.onload = () => resolve();
+    script.onerror = () => reject(new Error("Could not load Razorpay checkout"));
+    document.body.appendChild(script);
+  });
+}
+
 export function Checkout({ course }: { course: Course }) {
-  const { user, ready, isEnrolled, enroll } = useStore();
+  const { user, ready, isEnrolled, confirmEnrollment } = useStore();
   const router = useRouter();
   const stats = courseStats(course);
   const instructor = getInstructor(course.instructorId);
@@ -23,7 +64,6 @@ export function Checkout({ course }: { course: Course }) {
   const gst = Math.round(course.priceInr * 0.18);
   const total = course.priceInr + gst;
 
-  const [method, setMethod] = useState<Method>("card");
   const [phase, setPhase] = useState<Phase>("form");
   const [error, setError] = useState("");
 
@@ -37,26 +77,56 @@ export function Checkout({ course }: { course: Course }) {
     if (ready && !user) router.replace(`/login?next=/checkout/${course.slug}`);
   }, [ready, user, course.slug, router]);
 
+  async function verifyAndEnroll(response: Partial<RazorpayResponse> & { razorpay_order_id: string }) {
+    const res = await fetch("/api/payments/verify", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(response),
+    });
+    if (!res.ok) throw new Error("Payment verification failed");
+
+    confirmEnrollment(course.id);
+    setPhase("done");
+    setTimeout(() => router.push(`/learn/${course.slug}`), 1400);
+  }
+
   async function handlePay() {
     setError("");
     setPhase("processing");
     try {
-      // 1) Create the order on the server (mock Razorpay order in demo mode).
       const res = await fetch("/api/payments/order", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ courseId: course.id }),
       });
       if (!res.ok) throw new Error("Could not start payment");
-      await res.json();
+      const order = await res.json();
 
-      // 2) Simulate the Razorpay checkout modal + signature verification.
-      await new Promise((r) => setTimeout(r, 1600));
+      if (order.mock) {
+        // No Razorpay keys configured — simulate the checkout modal + verify.
+        await new Promise((r) => setTimeout(r, 1200));
+        await verifyAndEnroll({ razorpay_order_id: order.orderId });
+        return;
+      }
 
-      // 3) On verified success, grant access.
-      enroll(course.id);
-      setPhase("done");
-      setTimeout(() => router.push(`/learn/${course.slug}`), 1400);
+      await loadRazorpayScript();
+      new window.Razorpay({
+        key: order.keyId,
+        amount: order.amountPaise,
+        currency: order.currency,
+        name: "Tech Courses",
+        description: course.title,
+        order_id: order.orderId,
+        prefill: { name: user!.name, email: user!.email },
+        theme: { color: "#171717" },
+        handler: (response) => {
+          void verifyAndEnroll(response).catch(() => {
+            setError("Payment succeeded but verification failed. Contact support.");
+            setPhase("form");
+          });
+        },
+        modal: { ondismiss: () => setPhase("form") },
+      }).open();
     } catch {
       setError("Payment failed. Please try again.");
       setPhase("form");
@@ -89,12 +159,6 @@ export function Checkout({ course }: { course: Course }) {
     );
   }
 
-  const methods: { key: Method; label: string }[] = [
-    { key: "card", label: "Card" },
-    { key: "upi", label: "UPI" },
-    { key: "netbanking", label: "Netbanking" },
-  ];
-
   return (
     <div className="container-page py-12">
       <h1 className="text-3xl font-bold text-ink">Checkout</h1>
@@ -103,7 +167,6 @@ export function Checkout({ course }: { course: Course }) {
       </p>
 
       <div className="mt-10 grid gap-8 lg:grid-cols-[1.4fr_1fr]">
-        {/* Payment */}
         <div className="space-y-6">
           <div className="card p-6">
             <h2 className="font-semibold text-ink">Billing details</h2>
@@ -112,70 +175,18 @@ export function Checkout({ course }: { course: Course }) {
                 <label className="mb-1.5 block text-sm font-medium text-ink-soft">
                   Name
                 </label>
-                <input className="field" defaultValue={user.name} />
+                <input className="field" defaultValue={user.name} disabled />
               </div>
               <div>
                 <label className="mb-1.5 block text-sm font-medium text-ink-soft">
                   Email
                 </label>
-                <input className="field" defaultValue={user.email} />
+                <input className="field" defaultValue={user.email} disabled />
               </div>
             </div>
-          </div>
-
-          <div className="card p-6">
-            <h2 className="font-semibold text-ink">Payment method</h2>
-            <div className="mt-4 flex gap-2">
-              {methods.map((m) => (
-                <button
-                  key={m.key}
-                  onClick={() => setMethod(m.key)}
-                  className={`flex-1 rounded-[var(--radius)] border px-4 py-3 text-sm font-semibold transition-colors ${
-                    method === m.key
-                      ? "border-accent bg-accent-tint text-accent"
-                      : "border-line-strong text-ink-soft hover:border-ink"
-                  }`}
-                >
-                  {m.label}
-                </button>
-              ))}
-            </div>
-
-            <div className="mt-5 space-y-4">
-              {method === "card" && (
-                <>
-                  <div>
-                    <label className="mb-1.5 block text-sm font-medium text-ink-soft">
-                      Card number
-                    </label>
-                    <input className="field tnum" placeholder="4111 1111 1111 1111" />
-                  </div>
-                  <div className="grid grid-cols-2 gap-4">
-                    <input className="field tnum" placeholder="MM / YY" />
-                    <input className="field tnum" placeholder="CVV" />
-                  </div>
-                </>
-              )}
-              {method === "upi" && (
-                <div>
-                  <label className="mb-1.5 block text-sm font-medium text-ink-soft">
-                    UPI ID
-                  </label>
-                  <input className="field" placeholder="yourname@upi" />
-                </div>
-              )}
-              {method === "netbanking" && (
-                <select className="field">
-                  <option>HDFC Bank</option>
-                  <option>State Bank of India</option>
-                  <option>ICICI Bank</option>
-                  <option>Axis Bank</option>
-                </select>
-              )}
-            </div>
-
             <p className="mt-4 flex items-center gap-1.5 text-xs text-muted">
-              <LockIcon width={14} height={14} /> Demo checkout: no real card is charged.
+              <LockIcon width={14} height={14} /> You&apos;ll choose card, UPI, or netbanking
+              in the secure Razorpay window.
             </p>
           </div>
 
