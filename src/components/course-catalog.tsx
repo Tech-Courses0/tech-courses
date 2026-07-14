@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import type { Course, CourseLevel } from "@/lib/types";
 import type { CatalogContent, CourseCardMicrocopy } from "@/types/content";
 import { CourseCard } from "./course-card";
@@ -30,6 +30,13 @@ export function CourseCatalog({
   const [level, setLevel] = useState<LevelFilter>(initialLevel);
   const [query, setQuery] = useState("");
   const [sort, setSort] = useState<SortKey>("popular");
+
+  // Next.js keeps this client component mounted when only the query string
+  // changes. Keep the selected filter in sync with header navigation such as
+  // /courses?level=Certification and /courses?level=Coding.
+  useEffect(() => {
+    setLevel(initialLevel);
+  }, [initialLevel]);
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
