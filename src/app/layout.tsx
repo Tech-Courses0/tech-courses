@@ -9,22 +9,23 @@ import { LenisProvider } from "@/components/motion/lenis-provider";
 import { BackgroundField } from "@/components/background/background-field";
 import { getCurrentUser, getUserEnrollments } from "@/lib/auth";
 import { isAdmin } from "@/lib/admin";
+import { getLiveContent } from "@/lib/site-content";
 
 const geistSans = Geist({ variable: "--font-geist-sans", subsets: ["latin"] });
 const geistMono = Geist_Mono({ variable: "--font-geist-mono", subsets: ["latin"] });
 
-export const metadata: Metadata = {
-  title: {
-    default: "Tech Courses Academy · Free NISM Certification & Coding courses",
-    template: "%s · Tech Courses",
-  },
-  description:
-    "Free, structured video courses for India's NISM securities-market certifications and competitive coding — from the Tech Courses channel. Learn at your own pace with progress tracking.",
-};
+export async function generateMetadata(): Promise<Metadata> {
+  const { site } = await getLiveContent();
+  return {
+    title: { default: site.metaTitle, template: "%s · Tech Courses" },
+    description: site.metaDescription,
+  };
+}
 
 export default async function RootLayout({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
+  const content = await getLiveContent();
   const sessionUser = await getCurrentUser();
   const initialUser = sessionUser
     ? { name: sessionUser.name, email: sessionUser.email }
@@ -49,9 +50,9 @@ export default async function RootLayout({
           initialIsAdmin={initialIsAdmin}
         >
           <LenisProvider>
-            <SiteHeader />
+            <SiteHeader content={content} />
             <main className="flex-1">{children}</main>
-            <SiteFooter />
+            <SiteFooter content={content} />
           </LenisProvider>
         </StoreProvider>
       </body>

@@ -1,3 +1,4 @@
+import { randomBytes } from "node:crypto";
 import Razorpay from "razorpay";
 import { getCourseById } from "@/lib/catalog";
 import { getCurrentUser } from "@/lib/auth";
@@ -25,7 +26,9 @@ export async function POST(request: Request) {
 
   const keyId = process.env.RAZORPAY_KEY_ID;
   const keySecret = process.env.RAZORPAY_KEY_SECRET;
-  const receipt = `${course.id}_${user.id}_${Date.now()}`;
+  // Razorpay caps receipt at 40 chars — course.id (YouTube playlist id) alone
+  // can blow past that, so use an opaque short id instead of a composite key.
+  const receipt = randomBytes(12).toString("hex");
 
   let orderId: string;
   let mock = false;

@@ -143,3 +143,22 @@ model Channel {
   videoCount  Int      @default(0)
   syncedAt    DateTime @default(now())
 }
+
+// ─── Visual CMS editor: owner-editable marketing content ───
+// Two rows only: id = 'draft' (autosave target) and 'live' (public site reads
+// this). `data` is the full SiteContent tree (see src/types/content.ts).
+model SiteContent {
+  id        String   @id // 'draft' | 'live'
+  data      Json
+  updatedAt DateTime @updatedAt
+}
+
+// Append-only log of published versions — powers the editor's History panel.
+model SiteContentHistory {
+  id        Int      @id @default(autoincrement())
+  message   String
+  data      Json
+  createdAt DateTime @default(now())
+
+  @@index([createdAt])
+}

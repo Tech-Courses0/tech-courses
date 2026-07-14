@@ -6,13 +6,21 @@ import { Thumbnail } from "./ui";
 import { AsciiCorners } from "./ascii/ascii-block";
 import { ScrambleText } from "./terminal/scramble-text";
 import { PlayCircleIcon } from "./icons";
+import EditableText from "./editable/editable-text";
+import { defaultContent } from "@/lib/content-defaults";
+import type { CourseCardMicrocopy } from "@/types/content";
 
 /**
  * A course rendered as a terminal window. Real borders (responsive), a
  * monospace title bar that re-addresses itself on hover, the YouTube
  * thumbnail as the "preview" pane, and metadata as terminal output.
+ *
+ * `microcopy` carries the shared editable label strings (one content field each,
+ * applied to every card). Title/subtitle/price/href stay catalog-derived. It's
+ * optional so non-editable surfaces (the dashboard) render the seed labels.
  */
-export function CourseCard({ course }: { course: Course }) {
+export function CourseCard({ course, microcopy }: { course: Course; microcopy?: CourseCardMicrocopy }) {
+  const mc = microcopy ?? defaultContent().courseCard;
   const stats = courseStats(course);
   const instructor = getInstructor(course.instructorId);
   const isFree = course.priceInr === 0;
@@ -39,7 +47,7 @@ export function CourseCard({ course }: { course: Course }) {
           className="term-title"
         />
         <span className="ml-auto mono-label text-accent">
-          {isFree ? "free" : `₹${course.priceInr}`}
+          {isFree ? <EditableText path="courseCard.freeLabel" value={mc.freeLabel} as="span" /> : `₹${course.priceInr}`}
         </span>
       </div>
 
@@ -76,15 +84,21 @@ export function CourseCard({ course }: { course: Course }) {
 
         <div className="mt-auto grid grid-cols-3 gap-2 border-t border-line pt-3 text-[0.68rem]">
           <span className="flex flex-col">
-            <span className="text-line-strong">lessons</span>
+            <span className="text-line-strong">
+              <EditableText path="courseCard.lessonsLabel" value={mc.lessonsLabel} as="span" />
+            </span>
             <span className="tnum text-ink">{stats.lessonCount}</span>
           </span>
           <span className="flex flex-col">
-            <span className="text-line-strong">runtime</span>
+            <span className="text-line-strong">
+              <EditableText path="courseCard.runtimeLabel" value={mc.runtimeLabel} as="span" />
+            </span>
             <span className="tnum text-ink">{formatDuration(stats.totalMinutes)}</span>
           </span>
           <span className="flex flex-col">
-            <span className="text-line-strong">views</span>
+            <span className="text-line-strong">
+              <EditableText path="courseCard.viewsLabel" value={mc.viewsLabel} as="span" />
+            </span>
             <span className="tnum text-accent">{formatCompact(course.views)}</span>
           </span>
         </div>

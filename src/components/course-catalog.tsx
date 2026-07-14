@@ -2,25 +2,31 @@
 
 import { useMemo, useState } from "react";
 import type { Course, CourseLevel } from "@/lib/types";
+import type { CatalogContent, CourseCardMicrocopy } from "@/types/content";
 import { CourseCard } from "./course-card";
+import EditableText from "./editable/editable-text";
 
 type LevelFilter = "All" | CourseLevel;
 type SortKey = "popular" | "az" | "lessons";
 
 const levelTabs: LevelFilter[] = ["All", "Certification", "Coding"];
-const sortOptions: { key: SortKey; label: string }[] = [
-  { key: "popular", label: "Most viewed" },
-  { key: "lessons", label: "Most lessons" },
-  { key: "az", label: "A–Z" },
-];
 
 export function CourseCatalog({
   initialLevel = "All",
   courses,
+  catalog,
+  microcopy,
 }: {
   initialLevel?: LevelFilter;
   courses: Course[];
+  catalog: CatalogContent;
+  microcopy: CourseCardMicrocopy;
 }) {
+  const sortOptions: { key: SortKey; label: string }[] = [
+    { key: "popular", label: catalog.sortPopular },
+    { key: "lessons", label: catalog.sortLessons },
+    { key: "az", label: catalog.sortAz },
+  ];
   const [level, setLevel] = useState<LevelFilter>(initialLevel);
   const [query, setQuery] = useState("");
   const [sort, setSort] = useState<SortKey>("popular");
@@ -64,7 +70,7 @@ export function CourseCatalog({
                   : "border border-line bg-surface text-ink-soft hover:border-line-strong hover:text-ink"
               }`}
             >
-              {t === "All" ? "all tracks" : t}
+              {t === "All" ? catalog.allTracksLabel : t}
             </button>
           ))}
         </div>
@@ -73,7 +79,7 @@ export function CourseCatalog({
           <input
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            placeholder="Search courses, e.g. NISM, LeetCode, C"
+            placeholder={catalog.searchPlaceholder}
             className="field"
             aria-label="Search courses"
           />
@@ -93,20 +99,25 @@ export function CourseCatalog({
       </div>
 
       <p className="mt-5 font-mono text-sm text-muted">
-        <span className="text-line-strong">❯</span> showing{" "}
+        <span className="text-line-strong">❯</span>{" "}
+        <EditableText path="catalog.showingPrefix" value={catalog.showingPrefix} as="span" />{" "}
         <strong className="tnum text-ink">{filtered.length}</strong>{" "}
-        {filtered.length === 1 ? "course" : "courses"}
+        {filtered.length === 1 ? (
+          <EditableText path="catalog.courseWord" value={catalog.courseWord} as="span" />
+        ) : (
+          <EditableText path="catalog.coursesWord" value={catalog.coursesWord} as="span" />
+        )}
         {level !== "All" && ` in ${level.toLowerCase()}`}
       </p>
 
       {filtered.length === 0 ? (
         <div className="card mt-6 p-12 text-center text-muted">
-          No courses match your search. Try a different keyword or level.
+          <EditableText path="catalog.emptyState" value={catalog.emptyState} as="span" />
         </div>
       ) : (
         <div className="mt-6 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
           {filtered.map((c) => (
-            <CourseCard key={c.id} course={c} />
+            <CourseCard key={c.id} course={c} microcopy={microcopy} />
           ))}
         </div>
       )}

@@ -7,12 +7,11 @@ import { useStore } from "@/lib/store";
 import { Avatar } from "./ui";
 import { ThemeToggle } from "./theme-toggle";
 import { MenuIcon } from "./icons";
-
-const navLinks = [
-  { href: "/courses", label: "courses" },
-  { href: "/courses?level=Certification", label: "certifications" },
-  { href: "/courses?level=Coding", label: "coding" },
-];
+import EditableText from "./editable/editable-text";
+import EditableImage from "./editable/editable-image";
+import EditableRepeater from "./editable/editable-repeater";
+import type { SiteContent, NavLink } from "@/types/content";
+import { defaultContent } from "@/lib/content-defaults";
 
 /** Match a nav href against the live pathname + ?level= filter. */
 function useIsActive() {
@@ -30,12 +29,16 @@ function useIsActive() {
 function NavItem({
   href,
   label,
+  path,
+  hrefPath,
   active,
   onClick,
   block = false,
 }: {
   href: string;
   label: string;
+  path?: string;
+  hrefPath?: string;
   active: boolean;
   onClick?: () => void;
   block?: boolean;
@@ -50,88 +53,87 @@ function NavItem({
         block ? "block py-2.5" : "px-2.5 py-2"
       } ${active ? "text-ink" : "text-ink-soft hover:text-ink"}`}
     >
-      <span
-        className={`mr-0.5 transition-colors ${
-          active ? "text-accent" : "text-line-strong group-hover:text-accent"
-        }`}
-      >
-        [
-      </span>
-      {label}
-      <span className="text-accent opacity-0 transition-opacity duration-150 group-hover:opacity-100">
-        _
-      </span>
-      <span
-        className={`ml-0.5 transition-colors ${
-          active ? "text-accent" : "text-line-strong group-hover:text-accent"
-        }`}
-      >
-        ]
-      </span>
+      <span className={`mr-0.5 transition-colors ${active ? "text-accent" : "text-line-strong group-hover:text-accent"}`}>[</span>
+      {path ? <EditableText path={path} value={label} as="span" hrefPath={hrefPath} hrefValue={href} /> : label}
+      <span className="hidden text-accent group-hover:inline">_</span>
+      <span className={`ml-0.5 transition-colors ${active ? "text-accent" : "text-line-strong group-hover:text-accent"}`}>]</span>
     </Link>
   );
 }
 
-function DesktopNav() {
+function DesktopNav({ links }: { links: NavLink[] }) {
   const isActive = useIsActive();
   return (
     <nav className="ml-1 hidden items-center gap-1 md:flex">
-      {navLinks.map((l) => (
-        <NavItem key={l.label} href={l.href} label={l.label} active={isActive(l.href)} />
-      ))}
+      <EditableRepeater<NavLink>
+        path="nav.links"
+        items={links}
+        addLabel="+"
+        newItem={() => ({ label: "new link", href: "/" })}
+        renderItem={(l, i) => (
+          <NavItem
+            href={l.href}
+            label={l.label}
+            path={`nav.links.${i}.label`}
+            hrefPath={`nav.links.${i}.href`}
+            active={isActive(l.href)}
+          />
+        )}
+      />
     </nav>
   );
 }
 
-function MobileNav({ onNavigate }: { onNavigate: () => void }) {
+function MobileNav({ links, onNavigate }: { links: NavLink[]; onNavigate: () => void }) {
   const isActive = useIsActive();
   return (
     <nav className="border-t border-line bg-surface px-4 py-2 md:hidden">
-      {navLinks.map((l) => (
-        <NavItem
-          key={l.label}
-          href={l.href}
-          label={l.label}
-          active={isActive(l.href)}
-          onClick={onNavigate}
-          block
-        />
+      {links.map((l) => (
+        <NavItem key={l.label} href={l.href} label={l.label} active={isActive(l.href)} onClick={onNavigate} block />
       ))}
     </nav>
   );
 }
 
-function Wordmark() {
+function Wordmark({ site }: { site: SiteContent["site"] }) {
   return (
     <Link href="/" className="flex items-center gap-2.5">
-      <span className="metal grid h-8 w-8 place-items-center rounded-[var(--radius-sm)] font-mono text-sm font-bold">
-        TC
-      </span>
+      {site.logo ? (
+        <EditableImage path="site.logo" value={site.logo} alt={site.wordmark} className="h-8 w-8 rounded-[var(--radius-sm)]" />
+      ) : (
+        <span className="metal grid h-8 w-8 place-items-center rounded-[var(--radius-sm)] font-mono text-sm font-bold">
+          <EditableText path="site.badge" value={site.badge} as="span" />
+        </span>
+      )}
       <span className="font-mono text-[0.95rem] font-bold tracking-tight text-ink">
-        tech-courses
+        <EditableText path="site.wordmark" value={site.wordmark} as="span" />
         <span className="text-accent caret caret-bare" />
       </span>
     </Link>
   );
 }
 
-export function SiteHeader() {
+export function SiteHeader({ content, editor = false }: { content?: SiteContent; editor?: boolean }) {
   const { user, ready, isAdmin, logout } = useStore();
   const pathname = usePathname();
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [menu, setMenu] = useState(false);
 
-  // The learn player has its own chrome.
-  if (pathname?.startsWith("/learn/")) return null;
+  // The learn player has its own chrome; the CMS editor renders its OWN header
+  // inside the provider, so the layout's copy hides on /admin/editor.
+  if (!editor && (pathname?.startsWith("/learn/") || pathname?.startsWith("/admin/editor"))) return null;
+
+  const c = content ?? defaultContent();
+  const nav = c.nav;
 
   return (
     <header className="sticky top-0 z-40 border-b border-line bg-bg/80 backdrop-blur-md">
       <div className="container-page flex h-16 items-center gap-5">
-        <Wordmark />
+        <Wordmark site={c.site} />
 
         <Suspense fallback={<div className="ml-2 hidden md:block" />}>
-          <DesktopNav />
+          <DesktopNav links={nav.links} />
         </Suspense>
 
         <div className="ml-auto flex items-center gap-2">
@@ -141,8 +143,8 @@ export function SiteHeader() {
             <div className="h-9 w-24 animate-pulse rounded-[var(--radius)] bg-surface-2" />
           ) : user ? (
             <>
-              <Link href="/dashboard" className="btn btn-ghost hidden sm:inline-flex">
-                my learning
+              <Link href={nav.myLearningHref} className="btn btn-ghost hidden sm:inline-flex">
+                <EditableText path="nav.myLearningLabel" value={nav.myLearningLabel} as="span" hrefPath="nav.myLearningHref" hrefValue={nav.myLearningHref} />
               </Link>
               <div className="relative">
                 <button
@@ -160,19 +162,11 @@ export function SiteHeader() {
                         <p className="font-mono text-sm font-semibold text-ink">{user.name}</p>
                         <p className="truncate font-mono text-xs text-muted">{user.email}</p>
                       </div>
-                      <Link
-                        href="/dashboard"
-                        onClick={() => setMenu(false)}
-                        className="block px-4 py-2.5 font-mono text-sm text-ink-soft hover:bg-surface-2 hover:text-ink"
-                      >
+                      <Link href="/dashboard" onClick={() => setMenu(false)} className="block px-4 py-2.5 font-mono text-sm text-ink-soft hover:bg-surface-2 hover:text-ink">
                         my learning
                       </Link>
                       {isAdmin && (
-                        <Link
-                          href="/admin"
-                          onClick={() => setMenu(false)}
-                          className="block px-4 py-2.5 font-mono text-sm text-ink-soft hover:bg-surface-2 hover:text-ink"
-                        >
+                        <Link href="/admin" onClick={() => setMenu(false)} className="block px-4 py-2.5 font-mono text-sm text-ink-soft hover:bg-surface-2 hover:text-ink">
                           course studio
                         </Link>
                       )}
@@ -193,11 +187,11 @@ export function SiteHeader() {
             </>
           ) : (
             <>
-              <Link href="/login" className="btn btn-ghost hidden sm:inline-flex">
-                log in
+              <Link href={nav.loginHref} className="btn btn-ghost hidden sm:inline-flex">
+                <EditableText path="nav.loginLabel" value={nav.loginLabel} as="span" hrefPath="nav.loginHref" hrefValue={nav.loginHref} />
               </Link>
-              <Link href="/signup" className="btn btn-primary">
-                get started
+              <Link href={nav.ctaHref} className="btn btn-primary">
+                <EditableText path="nav.ctaLabel" value={nav.ctaLabel} as="span" hrefPath="nav.ctaHref" hrefValue={nav.ctaHref} />
               </Link>
             </>
           )}
@@ -214,7 +208,7 @@ export function SiteHeader() {
 
       {open && (
         <Suspense fallback={null}>
-          <MobileNav onNavigate={() => setOpen(false)} />
+          <MobileNav links={nav.links} onNavigate={() => setOpen(false)} />
         </Suspense>
       )}
     </header>
